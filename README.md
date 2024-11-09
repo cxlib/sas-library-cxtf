@@ -4,7 +4,6 @@ cxtf is a a test framework for and written entirely in SAS
 
 This is an initial experimental early development release (hence use with caution).
 
-[TOC]
 
 
 ## Getting Started
