@@ -12,10 +12,10 @@ Download the latest release of cxtf https://github.com/cxlib/sas-library-cxtf/re
 
 <br/>
 
-Add both the `<install direcrory>/macros` and `<install direcrory>/macros/internal` directories to `SASAUTOS`.
+Add both the `<install directory>/macros` and `<install directory>/macros/internal` directories to `SASAUTOS`.
 
 ```
-options SASAUTOS = ( "<install direcrory>/macros", "<install direcrory>/macros/internal", !SASAUTOS );
+options SASAUTOS = ( "<install directory>/macros", "<install directory>/macros/internal", !SASAUTOS );
 ```
 
 <br/>
@@ -27,7 +27,7 @@ Run the examples
 %cxtf_init( reset = TRUE );
 
 * run all the examples ;
-%cxtf_testdir( path = <install direcrory>/examples );
+%cxtf_testdir( path = <install directory>/examples );
 ```
 
 <br/>
