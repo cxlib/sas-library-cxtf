@@ -36,6 +36,8 @@ jobs:
           mkdir /assets
 
       - name: Build SAS macro archive
+        env:
+          VARS_COMPONENT: ${{ vars.COMPONENT }}
         run: /src/.scripts/sas-build.sh macros examples
 
       - name: Create release 
