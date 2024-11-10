@@ -35,7 +35,7 @@ Run the examples
 You can also run each test file individually.
 
 ```
-%cxlib_testfile( path = <file>); 
+%cxtf_testfile( path = <file>); 
 ```
 
 <br/>
