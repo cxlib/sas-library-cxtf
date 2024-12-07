@@ -38,14 +38,6 @@
 
 
 
-    %* -- expecting the test is identified ;
-    %if ( %symexist(cxtf_testid) = 0 ) %then %do;
-      %put %str(ER)ROR: cxtf test ID not defined ;
-      %_cxtf_stacktrace(); 
-      %goto macro_exit;
-    %end;
-
-
   %* -- expecting results data set ;
   %if ( %sysfunc(exist( _cxtfrsl.cxtfresults )) = 0 ) %then %do;
     %put %str(ER)ROR: cxtf results data set does not exist ;
@@ -57,9 +49,23 @@
   %* -- identify calling macro ;
   %* note: expecting the assert fail macro is called from the assertion ;
   %let _cxtf_assert_calling_macro = %sysfunc(lowcase(%sysmexecname( %eval( %sysmexecdepth - 1 ) )));
+
+
+  %*    direct run ;
+  %if ( %symexist(cxtf_testid) = 0 ) %then %do;
+
+     %put %str( ) ;
+     %put ------------------------------------------------------------------------------- ;
+     %put %sysmexecname( 1 ) %str(  ) Development mode ;
+     %put %sysmexecname( 1 ) %str(  ) [%upcase(&_cxtf_assert_calling_macro)] %str(  ) Pass;
+     %put ------------------------------------------------------------------------------- ;
+     %put %str( ) ;
+
+     %goto macro_exit;
+  %end;
+
  
   proc sql noprint;
-
 
   %if ( &data = %str() )  %then %do;
 

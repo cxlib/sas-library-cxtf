@@ -15,7 +15,7 @@
     %* note: temporary data sets using prefix _cxtfwrk.__cxtf_tfilemap_* ;
 
 
-    %local rc _syscc _sysmsg ;
+    %local rc _syscc _sysmsg _cxtf_debug_flg;
 
     %* -- capture entry state ;
     %let _syscc = 0;
