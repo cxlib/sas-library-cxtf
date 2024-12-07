@@ -60,7 +60,7 @@
       * -- read in program file ;
       infile "&path" ;
       input;
-
+      
       lineno = _n_ ;
       pgmline = _infile_ ;
 
@@ -72,7 +72,7 @@
 
       __prccess_line = 0;
 
-      do __prefix = '%macrotest_', '%test_', '*@' ;
+      do __prefix = '%macrotest_', '%test_', '*@', '%*@' ;
 
         * note: intentionally working k-functions ;
         if ( ( klength(kcompress( pgmline, " " )) >= klength(strip(__prefix)) ) and
@@ -116,7 +116,7 @@
 
      
       * -- process annotations ;
-      if ( __prefix = '*@' ) then do;
+      if ( __prefix in ( '*@', '*%*@') ) then do;
 
         type = "annotation";
 
@@ -126,7 +126,7 @@
         cmd = lowcase( ksubstr( strip(pgmline), __start, __end - __start ) );
         reference = compress( cmd, "@ ");
 
-        if ( reference not in ( "input", "output", "expecterr", "expectwarn", "skip" ) ) then
+        if ( reference not in ( "error", "errorignore", "warning", "warningignore" ) ) then
           return;
 
         call missing( __start, __end );
