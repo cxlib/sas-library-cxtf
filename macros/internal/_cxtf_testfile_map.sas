@@ -15,7 +15,7 @@
     %* note: temporary data sets using prefix _cxtfwrk.__cxtf_tfilemap_* ;
 
 
-    %local rc _syscc _sysmsg ;
+    %local rc _syscc _sysmsg _cxtf_debug_flg;
 
     %* -- capture entry state ;
     %let _syscc = 0;
@@ -50,17 +50,17 @@
 
     %* -- parse test program file ;
 
+
     data _cxtfwrk.__cxtf_tfilemap_dsraw ;
       
       length pgmline $ 4096 
-             type reference cmd $ 200 cmdargs $ 4096
              __prefix $ 50 ;
 
 
       * -- read in program file ;
       infile "&path" ;
       input;
-
+      
       lineno = _n_ ;
       pgmline = _infile_ ;
 
@@ -68,11 +68,12 @@
       * -- define which lines to keep for processing ;
       * note: '%macro test_' and '%test_' are test calls ;
       * note: '* @' is an annotation ;
+      * note: '%macro' and '%mend' are macro definitions
       * note: compares are in space compressed form to allow for white-space formatting ;
 
       __prccess_line = 0;
 
-      do __prefix = '%macrotest_', '%test_', '*@' ;
+      do __prefix = '%macrotest_', '%test_', '*@', '%*@', '%macro', '%mend' ;
 
         * note: intentionally working k-functions ;
         if ( ( klength(kcompress( pgmline, " " )) >= klength(strip(__prefix)) ) and
@@ -85,10 +86,79 @@
 
       end;
 
-      if ( __prccess_line = 0 ) then   
-        return ;  * <- nothing to do with this line ;
+      if ( __prccess_line = 1 ) then 
+        output;
+
+      drop __prccess_line ;
+    run;
 
 
+    data _cxtfwrk.__cxtf_tfilemap_defmap ;
+      set _cxtfwrk.__cxtf_tfilemap_dsraw ;
+
+      length __macrodef __macrodefid $ 50 ;
+      retain __macrodef __macrodefid ;
+
+      if ( __prefix in ( '%mend' ) ) then do;
+        call missing( __macrodef, __macrodefid  ) ;
+        return;
+      end;
+
+      if ( __prefix in ( '%macro' ) ) then do;
+        __macrodef = "__ignore__" ;
+        call missing( __macrodefid ) ;
+        return;
+      end;
+
+      if ( __prefix in ( '%macrotest_', '%test_') ) then do;
+
+          __start = kfind( strip(pgmline), "test_", 1);
+          __end = kfind( strip(pgmline), "(", 1 );
+          __w = klength(strip(pgmline));
+
+          __macrodef = lowcase(ksubstr( strip(pgmline), __start, __end - __start ));
+          __macrodefid = lowcase(hashing( "crc32", cats( symget('path'), put(lineno, 8.-L), __macrodef) ));
+
+      end;
+
+      drop __start __end __w ;
+
+    run;
+
+
+    proc sort  data = _cxtfwrk.__cxtf_tfilemap_defmap ;
+      by descending lineno __macrodefid __macrodef;
+    run;
+
+
+    data _cxtfwrk.__cxtf_tfilemap_scope ;
+      set _cxtfwrk.__cxtf_tfilemap_defmap ;
+      where ( strip(__prefix) ^= '%mend' ) ;
+
+      length scope scopeid $ 50 ;
+      retain scope scopeid ;
+
+
+*      if ( not missing(__macrodefid) ) then do;
+      if ( not missing(__macrodef) ) then do;
+        scope = strip(__macrodef) ;
+        scopeid = strip(__macrodefid) ;
+      end;
+
+     drop __macrodef __macrodefid ;      
+    run;
+
+
+    proc sort data = _cxtfwrk.__cxtf_tfilemap_scope ;
+      by lineno ;
+    run;
+
+
+    data _cxtfwrk.__cxtf_tfilemap_map ;
+      set _cxtfwrk.__cxtf_tfilemap_scope ;
+      where ( strip(scope) ^= "__ignore__" );
+
+      length type reference cmd $ 200 cmdargs $ 4096  ;
 
       * -- process test references ;
       if ( __prefix in ( '%macrotest_', '%test_') ) then do;
@@ -105,72 +175,37 @@
 
           __end = kfind( strip(pgmline), ";", -1*__w );
           cmdargs = ksubstr( strip(pgmline), __start, __end - __start);
-
-
-
-          output;
-          return;  * <-- done proocessing this program line ;
-
       end;
 
 
      
       * -- process annotations ;
-      if ( __prefix = '*@' ) then do;
+      if ( __prefix in ( '*@', '%*@') ) then do;
 
         type = "annotation";
 
-        __start = kfind( strip(pgmline), "@", 1);
-        __end = kfind( strip(pgmline), " ", __start );
+        __start = kfindc( strip(pgmline), "@", 1);
+        __end = kfindc( strip(pgmline), " ;", "", __start );
 
         cmd = lowcase( ksubstr( strip(pgmline), __start, __end - __start ) );
-        reference = compress( cmd, "@ ");
+        reference = compress( cmd, "@ ;");
 
-        if ( reference not in ( "input", "output", "expecterr", "expectwarn", "skip" ) ) then
+        if ( reference not in ( "error", "errorignore", "warning", "warningignore" ) ) then
           return;
 
-        call missing( __start, __end );
+        call missing( __start, __end, cmdargs );
 
         __start = kfind( strip(pgmline), strip(cmd), 1) + klength(strip(cmd)) + 1  ;
         __end = kfind( strip(pgmline), ";", -1*klength(strip(pgmline)) );
 
-        cmdargs = strip(ksubstr( strip(pgmline), __start, __end - __start )) ;
+        if ( __start < __end ) then
+          cmdargs = strip(ksubstr( strip(pgmline), __start, __end - __start )) ;
 
       end;
 
-
-      * -- just keep the lines processed ;
-      output;
-
+      drop __start __end __w  pgmline __prefix lineno;
     run;
 
-
-
-
-    %* -- define scope ;
-    
-    proc sort data = _cxtfwrk.__cxtf_tfilemap_dsraw ;
-      by descending lineno type reference;
-    run;
-
-
-    data _cxtfwrk.__cxtf_tfilemap_dsref ;
-      set _cxtfwrk.__cxtf_tfilemap_dsraw ;
-      by descending lineno type reference ;
-
-      length scope $ 200 ;
-      retain scope ;
-
-
-      if first.type and type = "test" then 
-        scope = reference; 
-      
-    run;
-
-
-    proc sort data = _cxtfwrk.__cxtf_tfilemap_dsref ;
-      by scope lineno ;
-    run;
 
 
 
@@ -179,7 +214,8 @@
     proc sql noprint;
 
         create table &out (
-          scope char(200),
+          scopeid char(50),
+          scope char(50),
           type char(200),
           reference char(200),
           cmd char(200),
@@ -188,7 +224,7 @@
 
 
         insert into &out 
-           select scope, type, reference, cmd, cmdargs from _cxtfwrk.__cxtf_tfilemap_dsref
+           select scopeid, scope, type, reference, cmd, cmdargs from _cxtfwrk.__cxtf_tfilemap_map
         ;
 
     quit;

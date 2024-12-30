@@ -73,7 +73,8 @@
         create table _cxtfwrk.__cxtf_testfile_rpt_results as
           select * from _cxtfrsl.cxtfresults
             where ( testid in (select testid from _cxtfrsl.cxtftestidx
-                                 where ( testfile in (select testfile from _cxtfwrk.__cxtf_testfile_rpt_mtx ) ) ) )
+                                 where ( testfile in (select testfile from _cxtfwrk.__cxtf_testfile_rpt_mtx) ) and
+                                         ( strip(type) = "test" ) ) )
         ;
 
 
@@ -135,7 +136,7 @@
           from ( select c.testfile, d.testid, d.test 
                    from (select distinct testfile from _cxtfwrk.__cxtf_testfile_rpt_mtx) c
                         left join 
-                        _cxtfrsl.cxtftestidx d
+                        (select * from _cxtfrsl.cxtftestidx where ( strip(type) = "test" ) ) d
                    on ( strip(lowcase(c.testfile)) = strip(lowcase(d.testfile)) ) ) a 
                left join
                (select testid, assertion, result, message from _cxtfrsl.cxtfresults where not missing(message)) b

@@ -73,9 +73,9 @@
 
 
     %* -- generate test map ;
-
-    data _cxtfwrk.__cxtf_tfile_dsmap ;
-      set _cxtfwrk.__cxtf_tfile_dsimpmap ( rename = (reference = _test )) ;
+ 
+    data _cxtfwrk.__cxtf_tfile_testmap ;
+      set _cxtfwrk.__cxtf_tfile_dsimpmap ;
 
       length testfile $ 4096
              hash_sha1 test testid $ 50
@@ -99,11 +99,15 @@
         seq = _n_;
 
         %* getting length right ;
-        test = strip(_test);
+        test = strip(scope);
 
         %* -- generate test ID ;
-        testid = lowcase( hashing( "crc32", cats( testfile, hash_sha1, test, cmd, cmdargs, put( datetime(), best32. ), put( rand("uniform"), best32.) ) ) );
+        testid = lowcase( hashing( "crc32", cats( testfile, hash_sha1, scopeid, cmd, cmdargs, put( datetime(), best32. ), put( rand("uniform"), best32.) ) ) );
 
+        %* -- save the test and testid references ;
+        output;
+
+        keep scope scopeid test testid testfile hash_sha1 seq ;
       end;
 
     run;
@@ -113,15 +117,23 @@
     %* -- append to test index ;
     proc sql noprint;
 
+      create table _cxtfwrk.__cxtf_tfile_dsmap as
+        select a.testfile, a.hash_sha1, a.seq, a.test, a.testid, 
+               b.type, b.scope, b.scopeid, b.reference, b.cmd, b.cmdargs 
+          from _cxtfwrk.__cxtf_tfile_testmap a left join _cxtfwrk.__cxtf_tfile_dsimpmap b
+          on ( strip(a.scope) = strip(b.scope) ) and
+             ( strip(a.scopeid) = strip(b.scopeid) )
+      ; 
+
+
       insert into _cxtfrsl.cxtftestidx
-        select testfile, hash_sha1, seq, test, testid, cmdargs as testcmd from _cxtfwrk.__cxtf_tfile_dsmap
-          where ( type = "test" )
+        select testfile, hash_sha1, seq, test, testid, type, scope, scopeid, reference, cmd, cmdargs from _cxtfwrk.__cxtf_tfile_dsmap
       ;
 
     quit;
 
     proc sort data = _cxtfrsl.cxtftestidx ;
-      by testfile seq test testid ;
+      by testfile seq test testid type scope scopeid ;
     run;
 
 
@@ -133,7 +145,8 @@
 
     data _null_ ;
       set _cxtfrsl.cxtftestidx  ;
-      where ( strip(testfile) = strip(symget('_cxtf_testfile_path')) );
+      where ( strip(testfile) = strip(symget('_cxtf_testfile_path')) ) and
+            ( strip(type) = "test" ) ;
 
       length cmdstr $ 4096 ;
       
@@ -148,7 +161,7 @@
 
 
       %*- test ;
-      call catx( " ; ", cmdstr, cats('%', testcmd) );
+      call catx( " ; ", cmdstr, cats('%', cmdargs) );
 
 
       %* - post-process test ;
@@ -167,7 +180,7 @@
       put " " /
           "---------------------------------------------------------------------" /
           "Begin test ID " testid /
-          testcmd /
+          cmdargs /
           "---------------------------------------------------------------------" /
           " ";
 
