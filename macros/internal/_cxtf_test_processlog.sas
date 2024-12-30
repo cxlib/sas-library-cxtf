@@ -310,6 +310,10 @@
     %end;
 
 
+    %* -- when all is ok ;
+    %assert_log_pass:
+
+
     %* -- all ok in the log at this point ;
     %_cxtf_assert_pass();
 
