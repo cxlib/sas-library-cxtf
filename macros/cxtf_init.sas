@@ -91,7 +91,12 @@
           seq        num, 
           test       char(50),
           testid     char(50),
-          testcmd    char(4096)
+          type       char(200),
+          scope      char(50),
+          scopeid    char(50),
+          reference  char(200),
+          cmd        char(200),
+          cmdargs    char(4096)
         );
 
       %end;
@@ -113,8 +118,52 @@
 
 
 
+    %* -- reset cxtf macros ;
+    %if ( %upcase(&reset) = TRUE ) %then %do;
+
+      proc sql noprint;
+
+        create table _cxtfwrk.__cxtf_init_macros as 
+          select catx( ".", libname, memname) as catalog length=32, 
+                 objname
+          from dictionary.catalogs 
+          where ( upcase(strip(libname)) = "WORK" ) and
+                ( upcase(strip(memtype)) = "CATALOG" ) and
+                ( upcase(strip(objtype)) = "MACRO" )
+          order by catalog, objname
+        ;
+
+      quit;
+
+
+      data _null_;
+        set _cxtfwrk.__cxtf_init_macros ;
+        by catalog ;
+
+        where ( ( upcase(strip(objname)) =: "CXTF_" ) or
+                ( upcase(strip(objname)) =: "_CXTF_" ) ) and 
+              ( upcase(strip(objname)) ^= "CXTF_INIT" )
+        ;
+
+        put "NO" "TE: Deleting macro " objname +(-1) " in catalog " catalog +(-1) "." ;
+        call execute( catx( " ", '%sysmacdelete', objname, '/nowarn') );
+
+      run;
+
+    %end;
+
+
+
     %* -- macro exit point ;
     %macro_exit:
+
+
+
+    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+      proc datasets  library = _cxtfwrk nolist nodetails;
+        delete __cxtf_init_: ; run;
+      quit;
+    %end;
 
 
     %* -- restore entry state ;
