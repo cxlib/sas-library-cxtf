@@ -48,8 +48,9 @@
     %* -- log report test results ;
 
     data _cxtfwrk.__cxtf_&cxtf_testid._rpt_mtx ;
-       set _cxtfrsl.cxtftestidx (keep = testid test) ;
-       where ( testid = symget( 'cxtf_testid' ));
+       set _cxtfrsl.cxtftestidx  ;
+       where ( strip(testid) = strip(symget( 'cxtf_testid' )) ) and
+             ( strip(type) = "test" ) ;
 
        length result $ 5 ;
 
@@ -57,6 +58,7 @@
          output;
        end;
 
+       keep testid test result ;
     run;
 
 
