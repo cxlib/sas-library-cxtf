@@ -1,8 +1,8 @@
 
-cxtf is a a test framework for and written entirely in SAS
+cxtf is a test framework for and written entirely in SAS
 
 
-This is an initial experimental early development release (hence use with caution).
+This is a development release that now adds support for both positive and negative (think Errors and Warnings).
 
 
 
@@ -158,11 +158,111 @@ cxtf_expect_varexists      | Variables exist in a data set
 <br/>
 
 ### Assessing test scenario logs
-The log for each test scenario is assessed. 
+The log for each test scenario is assessed. By default, it is expected that the 
+test scenario executes without any errors or warnings. 
 
-Currently, it is expected that a test scenario executes without any errors or
-warnings. Support for asserting that a specific error and/or warning has been 
-generated is on the roadmap.
+If a test scenario is expected to execute with an error, warning or both, the 
+expectation is documented through the annotations `@error` and `@warning`, 
+respectively. 
+
+If the annotation `@error` or `@warning` is defined and the Error or Warning, 
+respectively, does not occur, then the test fails. 
+
+<br/>
+
+The annotation can be part of the test macro header, i.e. the comment section just
+preceding the test macro definition.
+
+```
+* An example of test macro with header annotations for any error or warning ;
+*
+* @error ;
+* @warning ;
+
+%macro test_thetest();
+ %* code goes here ;
+%mend;
+
+```
+
+<br/>
+
+The annotation can also be inline within the macro definition itself.
+
+```
+* An example of test macro with inline annotations for any error or warning ;
+
+%macro test_thetest();
+
+ %* @error ;
+ %* @warning ;
+
+
+ %* code goes here ;
+ 
+%mend;
+
+```
+
+<br/>
+
+Specifying `@error` and `@warning` implies any error or warning, irrespective of
+the Error or Warning message.
+
+You can add an expected Error message string to the annotation if a particular 
+message should be present in the SAS log. Same goes for the `@warning` annotation.
+
+```
+* An example of test macro with inline annotations for an expected error ;
+
+%macro test_thetest();
+
+ %* @error File WORK.IDONOTEXIST.DATA does not exist ;
+
+ data _null_ ;
+   set work.idonotexist ;
+ run;
+
+%mend;
+
+```
+
+<br/>
+
+If parameter driven calls to a test macro is used, inline annotations only apply 
+to executing the test with defaults, i.e. `%macro test_expectcustom_inerror( a = 1 );`
+and calling the same test macro with different parameter values will use 
+header annotations. Hence, annotations apply to the next test call and are not 
+reused.
+
+```
+* note: as inline @error annotation ;
+%macro test_expectcustom_inerror( a = 1 );
+
+  * @error [1] This is my custom ;
+  %put %str(ER)ROR: [&a] This is my custom error for  ;
+
+%mend;
+
+
+* note: calling a previous test with parameters use header @error annotation  ;
+* note: test macro definition annotation is ignored ;
+* ;
+* @error [2] This is my custom error ;
+%test_expectcustom_inerror( a = 2 );
+```
+
+<br/>
+
+A few additional and important things to note about the use of annotations.
+
+* The annotation applies to the entire test macro and not a particular code block 
+within the test macro definition.
+* One annotation per line
+* An annotation cannot wrap across multiple lines
+* Case is ignored
+* An expected message matches the *the start of the actual log message* disregarding the Error or Warning label
+* Only log lines that start with SAS standard formats `ERROR:`, `ERROR <code>:` and `WARNING:` are supported
 
 
 <br/>
@@ -184,7 +284,7 @@ Result   Pass: 24  Skip: 0  Fail: 0
 The numbers for Fail, Skip and Pass are the number of assertions, just to get us
 going. 
 
-More comprehensive reporting is in the plans.
+More comprehensive reporting and test metrics are next in the plans.
 
 
 
