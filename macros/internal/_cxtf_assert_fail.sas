@@ -13,7 +13,8 @@
 %macro _cxtf_assert_fail( message = , data = );
 
     %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
-           _cxtf_assert_calling_macro 
+           _cxtf_assert_calling_macro
+           _cxtf_assert_fail_count 
     ;
 
 
@@ -64,33 +65,73 @@
   %end;
 
 
-  proc sql noprint;
 
+
+  %* -- using macro parameters ;
 
   %if ( &data = %str() )  %then %do;
 
-    insert into _cxtfrsl.cxtfresults
-          ( testid, result, assertion, message )
-          values ( "%sysfunc(strip(&cxtf_testid))", "fail", "%sysfunc(strip(&_cxtf_assert_calling_macro))", "&message" )
-    ;
+    proc sql noprint;
+
+      insert into _cxtfrsl.cxtfresults
+            ( testid, result, assertion, message )
+            values ( "%sysfunc(strip(&cxtf_testid))", "fail", "%sysfunc(strip(&_cxtf_assert_calling_macro))", "&message" )
+      ;
+
+    quit;
+
+    %*    note failure in log ;
+    %put %str(ER)ROR: [%upcase(&_cxtf_assert_calling_macro)] &message ;
 
   %end;
 
 
+
+  %* -- using input data set ;
+
   %if ( ( &data ^= %str() ) and %sysfunc(exist(&data)) ) %then %do;
 
-    insert into _cxtfrsl.cxtfresults
-      select "%sysfunc(strip(&cxtf_testid))", "fail", "%sysfunc(strip(&_cxtf_assert_calling_macro))", strip(message) from &data 
-        where not missing( message )
-    ;
+    %*    check if there are records to process ;
+
+    %let _cxtf_assert_fail_count = 0 ;
+
+    proc sql noprint;
+      select count(distinct(message)) into: _cxtf_assert_fail_count separated by ' ' from &data 
+        where not missing(message)
+      ;
+    quit;
+
+    %if ( &_cxtf_assert_fail_count = 0 ) %then %goto macro_exit;
+
+
+    %*    process records ;
+
+    proc sql noprint;
+
+      insert into _cxtfrsl.cxtfresults
+        select distinct "%sysfunc(strip(&cxtf_testid))", "fail", "%sysfunc(strip(&_cxtf_assert_calling_macro))", strip(message) from &data 
+          where not missing( message )
+      ;
+
+    quit;
+
+
+    data _null_ ;
+      set &data ;
+      where not missing( message ) ;
+
+      length calling_macro $ 50 ;
+      retain calling_macro ;
+
+      if ( _n_ = 1 ) then 
+        calling_macro = upcase(strip(symget('_cxtf_assert_calling_macro')));
+
+      put "ER" "ROR: [" calling_macro +(-1) "] " message ;
+
+    run;
+
 
   %end; 
-
-  quit;
-
-
-  %* -- note failure in log ;
-  %put %str(ER)ROR: [%upcase(&_cxtf_assert_calling_macro)] &message ;
 
 
   %* -- macro exit point;
