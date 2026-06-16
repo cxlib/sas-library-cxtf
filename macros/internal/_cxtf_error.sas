@@ -14,6 +14,8 @@
 
 %macro _cxtf_error( message = );
 
+   %* note: temporary data sets using prefix _cxtfwrk.__cxtf_err_* ;
+
 
     %local _cxtf_syscc _cxtf_sysmsg 
            _cxtf_debug_flg
@@ -60,93 +62,138 @@
     
     %end;
     
-
-
-    %* -- expecting results data set ;
+    
+    %* -- post message to log ;
+    data _null_;
+      set sashelp.vmacro ;
+      
+      %* - note offset = 0 .. only first 200 characters ;      
+      where ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and
+            ( upcase(strip(name)) = "MESSAGE" ) and
+            ( offset = 0 )
+      ;
+    
+    
+      if ( _n_ > 1 ) then do;
+        put "ER" "ROR: (cxtf) More than one record returned with message";
+      end;
+      
+    
+      length _msg $ 200 _str $ 250 ;
+    
+      %* - default message ;
+      _msg = catx( " ", cats("Er", "ror"), "message not specified" ) ;
+      
+      
+      if ( not missing(kstrip(value)) ) then 
+        _msg = kstrip(value);
+        
+      
+      %* - add message to log ;
+      _str = catx( ": ", cats( "ER", "ROR"), catx( " ", "(cxtf)", _msg ) );
+      put _str;
+      
+    run;
+    
+    
+    
+    %* -- register message with results ;
+    
+    %* - expecting framework work library  ;
+    %if ( %sysfunc(libref(_cxtfwrk)) ^= 0 ) %then %do;
+      %put %str(ER)ROR: (cxtf) Framework work library does not exist ;
+      %_cxtf_stacktrace(); 
+      %goto macro_exit;
+    %end;
+    
+    
+    %* - expecting results data set ;
     %if ( %sysfunc(exist( _cxtfrsl.cxtfresults )) = 0 ) %then %do;
         %put %str(ER)ROR: (cxtf) Results data set does not exist ;
         %_cxtf_stacktrace(); 
         %goto macro_exit;
     %end;
+    
+    
+    
+    %* - determine qualified message ;
+    
+    data _cxtfwrk.__cxtf_err_msg ; 
+      set sashelp.vmacro  end = eof ;
 
-
-    
-    %* -- test id not defined ;
-    %if ( %symexist(cxtf_testid) = 0 ) %then %do;
-        %put %str(ER)ROR: (cxtf) Test ID (CXTF_TESTID) not defined ;
-        %_cxtf_stacktrace(); 
-        %goto macro_exit;
-    %end;
-    
-    
-    
-    %* -- message required ;
-    
-    %let _cxtf_err_sighup = FALSE ;
-    
-    data _null_;
-      set sashelp.vmacro ;
-      
-      %* note: use same mechanism that registers message with results ;
-      
-      where ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and
-            ( upcase(strip(name)) = "MESSAGE" ) and
+      %* - note offset = 0 .. only first 200 characters ;      
+      where ( upcase(strip(name)) in ( "CXTF_TESTID",  "MESSAGE", "_CXTF_ERR_CALLING_MACRO" ) ) and
             ( offset = 0 )
       ;
-      
-      %* note: expecting a single record from where statement ;
-      %* note: not missing, i.e. has value, DATA step exits ;
-      if not missing(strip(value)) then do ;
-        _str = catx( ": ", cats( "ER", "ROR"), catx( " ", "(cxtf)", value ) );
-        put _str;
-        return;
-      end; 
-      
-      %* note: interrupt ;
-      call symput( '_cxtf_err_sighup', "TRUE" ) ;
-          
-    run;      
+   
+   
+      length testid $ 50 result $ 5 assertion message $ 200 ;
+      retain testid result assertion message ;
     
-    %if ( &_cxtf_err_sighup = TRUE ) %then %do;
-    
-      %* -- record as missing message ;
-      proc sql noprint;
+      %* - defaults ;
+      if ( _n_ = 1 ) then do ;
       
-        insert into _cxtfrsl.cxtfresults
-          select kstrip("&cxtf_testid"), "fail", kstrip("&_cxtf_err_calling_macro"), cats( "Er", "ror recorded with message not specified or message is an empty value" )   
-            from dictionary.macros 
-            where ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and
-                  ( upcase(strip(name)) = "MESSAGE" ) and
-                  ( offset = 0 )
-        ;
+        %* - defensive initialise as empty ;
+        call missing( testid, result, assertion, message );
       
-      quit; 
-    
-      %put %str(ER)ROR: (cxtf) Parameter MESSAGE not specified or an empty value ; 
-      
-      %_cxtf_stacktrace();
-      
-      %goto macro_exit;
-    %end;
+        testid = "undefined" ;
+        result = "fail";
+        assertion = "undefined";
+        message = catx( " ", cats("Er", "ror"), "message not specified" );
+      end;
 
+      %* - test ID ;      
+      if ( ( upcase(strip(scope)) = "GLOBAL" ) and 
+           ( upcase(strip(name)) = "CXTF_TESTID" ) and 
+           not missing(kstrip(value)) ) then 
+        testid = kstrip(value);
+      
+      %* - assertion ... calling macro ;  
+      if ( ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and 
+           ( upcase(strip(name)) = "_CXTF_ERR_CALLING_MACRO" ) and
+           not missing(kstrip(value)) ) then 
+        assertion = kstrip(value);
+        
+        
+      %* - message ;  
+      if ( ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and 
+           ( upcase(strip(name)) = "MESSAGE" ) and 
+           not missing(kstrip(value)) ) then 
+        message = kstrip(value);
+        
+      
+      %* - keep last record ... note retain ;
+      if eof then output;
     
-    %* -- record message ;
+      keep testid result assertion message ;
+    run;
+    
+    
+    
+    %* - register results ;
+    
     proc sql noprint;
     
       insert into _cxtfrsl.cxtfresults
-        select kstrip("&cxtf_testid"), "fail", kstrip("&_cxtf_err_calling_macro"), kstrip(value)  
-          from dictionary.macros 
-          where ( upcase(strip(scope)) = upcase(strip("&sysmacroname")) ) and
-                ( upcase(strip(name)) = "MESSAGE" ) and
-                ( offset = 0 )
+        select kstrip(testid), result, kstrip(assertion), kstrip(message)  
+          from _cxtfwrk.__cxtf_err_msg 
       ;
     
     quit; 
 
+    
 
 
     %* -- macro exit point;
     %macro_exit:
+
+
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
+      proc datasets  library = _cxtfwrk nolist nodetails;
+        delete __cxtf_err_: ; run;
+      quit;
+    %end;
+
 
 
     %* -- restore entry state ;
