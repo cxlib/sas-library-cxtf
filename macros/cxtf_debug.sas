@@ -111,7 +111,7 @@
   %put %str(DEBUG) ------------------------------------------------------------;
 
 
-  %* -- macro exit point ;
+  %* -- macro exit point;
   %macro_exit:
 
 
