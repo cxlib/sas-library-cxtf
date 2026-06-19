@@ -23,6 +23,9 @@
   %local ___cxtf_debug_flag
          ___cxtf_mname
          ___cxtf_i 
+         
+         _cxtf_dbg_syntaxchk _cxtf_dbg_rplc 
+         
   ;
 
 
@@ -88,6 +91,28 @@
   
   %put %str(DEBUG) ;
   
+  
+  %* - system SYNTAXCHECK mode ;
+  
+  %if ( %upcase(%sysfunc(getoption(SYNTAXCHECK))) = SYNTAXCHECK ) %then %do;
+    %let _cxtf_dbg_syntaxchk = enabled;
+  %end; %else %do;
+    %let _cxtf_dbg_syntaxchk = disabled (%upcase(%sysfunc(getoption(SYNTAXCHECK)))); 
+  %end;
+  
+  %if ( %upcase(%sysfunc(getoption(REPLACE))) = REPLACE ) %then %do;
+    %let _cxtf_dbg_rplc = enabled;
+  %end; %else %do;
+    %let _cxtf_dbg_rplc = disabled (%upcase(%sysfunc(getoption(REPLACE)))); 
+  %end;
+    
+
+  %put %str(DEBUG) SYNTAXCHECK option is &_cxtf_dbg_syntaxchk ;
+  %put %str(DEBUG) REPLACE option is &_cxtf_dbg_rplc ;
+  %put %str(DEBUG) OBS = %sysfunc(getoption(OBS)) ;  
+  
+  %put %str(DEBUG) ;
+
   
   %* -- test id ;
   
