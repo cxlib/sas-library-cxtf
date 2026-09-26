@@ -135,6 +135,28 @@
     %end;
 
 
+    %* -- data not exists ;
+
+    %if ( %sysfunc(exist(&_cxtf_dsbase)) = 0 ) %then %do;
+
+      %* - if assertion cannot determine an explicit pass of fail, inconclusive defaults to fail ;
+      %_cxtf_assert_fail( message = Primary data set &_cxtf_dsbase does not exist );
+
+      %goto macro_exit;
+    %end;
+
+
+    %* -- data compare not exists ;
+
+    %if (%sysfunc(exist(&_cxtf_dscompare)) = 0 ) %then %do;
+
+      %* - if assertion cannot determine an explicit pass of fail, inconclusive defaults to fail ;
+      %_cxtf_assert_fail( message = Comparison data set &_cxtf_dscompare does not exist );
+
+      %goto macro_exit;
+    %end;
+
+
     %* -- build meta check list ;
     %let _cxtf_metalst = name type;
 
