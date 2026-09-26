@@ -169,7 +169,7 @@
     %macro_exit:
 
 
-    %if ( %upxase(&_cxtf_debug_flg) = FALSE ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails;
         delete _cxtf_expect_varexist_: ; run;
