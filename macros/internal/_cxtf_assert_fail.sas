@@ -64,6 +64,13 @@
         %put ------------------------------------------------------------------------------- ;
         %put %sysmexecname( 1 ) %str(  ) Development mode ;
         %put %sysmexecname( 1 ) %str(  ) [%upcase(&_cxtf_assert_calling_macro)] %str(  ) Fail;
+        
+        %if ( &message ^= %str() ) %then %do;
+            %put %sysmexecname( 1 ) %str(  ) [%upcase(&_cxtf_assert_calling_macro)] %str(  ) &message;
+        %end; %else %do;
+            %put %sysmexecname( 1 ) %str(  ) [%upcase(&_cxtf_assert_calling_macro)] %str(  ) No message provided;
+        %end;
+
         %put ------------------------------------------------------------------------------- ;
         %put %str( ) ;
         
