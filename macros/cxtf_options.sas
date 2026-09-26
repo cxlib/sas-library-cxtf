@@ -56,7 +56,7 @@
 
     %* not known ;
     %if ( %sysfunc(findw( &_cxtf_known_opts, &_cxtf_opt, , ies )) = 0 ) %then %do;
-      %put %str(ER)ROR: Option %upcase(&_cxtf_opt) is not known ;
+      %put %str(ER)ROR: (cxtf) Option %upcase(&_cxtf_opt) is not known ;
       %goto continue_w_options ;
     %end;
 
@@ -82,7 +82,7 @@
 
     %* futility ... option not known;
     %if ( %sysfunc(findw( &_cxtf_known_opts, &_cxtf_opt, , ies )) = 0 ) %then %do;
-      %put %str(ER)ROR: Option %upcase(&_cxtf_opt) is not known ;
+      %put %str(ER)ROR: (cxtf) Option %upcase(&_cxtf_opt) is not known ;
       %goto continue_w_list ;
     %end;
 

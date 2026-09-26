@@ -1,5 +1,5 @@
 /*
-* Post-process test log
+* Internal utility macro for post-processing test log
 *
 *
 */
@@ -16,7 +16,7 @@
 
 
     %* -- print debugging information;
-    %_cxtf_debug( return = _cxtf_debug_flg  );
+    %cxtf_debug( return = _cxtf_debug_flg  );
 
     
     %* -- capture entry state ;
@@ -24,18 +24,22 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
 
     *% -- test id required ;
     %if ( %symexist(cxtf_testid) = 0 ) %then %do;
-      %put Expected CXTF_TESTID not defined;
+      %put %str(ER)ROR: (cxtf) Expected CXTF_TESTID not defined;
+      %_cxtf_stacktrace();
       %goto macro_exit;
     %end;
 
@@ -45,14 +49,15 @@
 
     %let _testlog = %sysfunc(pathname(_cxtfwrk))/test_&cxtf_testid..log ;
 
-    %if ( &_cxtf_debug_flg ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = TRUE ) %then %do;
       %put %str(DEBUG): Test log &_testlog ;
     %end;
 
 
     %if ( %sysfunc(fileexist( &_testlog )) = 0 ) %then %do;
       %_cxtf_assert_fail( message = No test log to process );
-      %put %str(DEBUG): No log to process ;
+      %put %str(ER)ROR: (cxtf) No test scenario log to process ;
+      %_cxtf_stacktrace();
       %goto macro_exit ;
     %end;
 
@@ -104,7 +109,7 @@
       %* note: no colon in the substring ;
       if ( prxmatch( prx_err_w_code, strip(logline) ) ) then do;
         msgclass = cats( "er", "ror");
-        message = strip(ksubstr( strip(logline), kfindc(strip(logline), ":") + 1 ));
+        message = strip(ksubstr( strip(logline), kfind(strip(logline), ":") + 1 ));
         output _cxtfwrk.__cxtf_&cxtf_testid._logfail ;
       end;
 
@@ -322,7 +327,7 @@
     %macro_exit:
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
       proc datasets library = _cxtfwrk nolist nodetails;
         delete __cxtf_&cxtf_testid._log: ; run;
       quit;
@@ -332,10 +337,16 @@
     %* TODO ... remove _testlog  ;
 
 
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
 
 

@@ -11,15 +11,15 @@
     %* -- add trace to the log ;
 
     %put %str( );
-    %put Macro stack trace;
-    %put ---------------------------------------;
+    %put %str(ER)ROR: (cxtf) Macro stack trace;
+    %put %str(ER)ROR: (cxtf) ---------------------------------------;
 
     %do _cxtf_i = %eval( %sysmexecdepth - 1 ) %to 1 %by -1;
 
       %if ( &_cxtf_i = %eval( %sysmexecdepth - 1 ) ) %then 
-        %put %sysmexecname( &_cxtf_i );
+        %put %str(ER)ROR: (cxtf) %sysmexecname( &_cxtf_i );
       %else 
-         %put ... called from %str( ) %sysmexecname( &_cxtf_i ) ;
+         %put %str(ER)ROR: (cxtf) ... called from %str( ) %sysmexecname( &_cxtf_i ) ;
 
     %end;
 

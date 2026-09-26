@@ -1,11 +1,10 @@
 /*
-* Utility macro to parse a test file and return a run-map
+* Internal utility macro to parse a test file and return a run-map
 *
 * @param path File path
 * @param out Output data est
 *
 *
-'
 *
 *
 */
@@ -16,23 +15,28 @@
 
 
     %local rc _syscc _sysmsg _cxtf_debug_flg;
-
+    
+    
     %* -- capture entry state ;
-    %let _syscc = 0;
-    %let _sysmsg = ;
+    %let _cxtf_syscc = 0;
+    %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
-      %let _syscc = &syscc;
-      %let _sysmsg = &sysmsg;
-
+    
+      %let _cxtf_syscc = &syscc;
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
 
+
     %* -- debug information ;
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- clean previous artifacts ;
@@ -42,7 +46,8 @@
 
 
     %if ( %sysfunc(fileexist( &path )) = 0 ) %then %do;
-      %put %str(ER)ROR: The specified file &path does not exist;
+      %put %str(ER)ROR: (cxtf) The specified file &path does not exist;
+      %_cxtf_stacktrace();
       %goto exit;
     %end;
 
@@ -75,13 +80,28 @@
 
       do __prefix = '%macrotest_', '%test_', '*@', '%*@', '%macro', '%mend' ;
 
+        * note: looking for prefix in compressed form ;
         * note: intentionally working k-functions ;
-        if ( ( klength(kcompress( pgmline, " " )) >= klength(strip(__prefix)) ) and
-             ( lowcase( ksubstr( kcompress( pgmline, " " ), 1, klength(strip(__prefix)) ) ) =  strip(__prefix) ) ) then do;
-
+        
+        * -- line is shorter than prefix ... futility ;
+        if ( klength(kcompress( pgmline, " ")) <= klength(strip(__prefix)) ) then 
+          continue;
+          
+        * -- line and prefix equal length but not equal;
+        if ( ( klength(kcompress( pgmline, " ")) = klength(strip(__prefix)) ) and 
+             (kcompress( pgmline, " ") ^= strip(__prefix) ) ) then
+          continue; 
+        
+        * -- line and prefix equal ;
+        if ( kcompress( pgmline, " ") = strip(__prefix) )  then do;
           __prccess_line = 1;
           leave;
-
+        end;
+          
+        * -- line starts with prefix ;
+        if ( lowcase( ksubstr( kcompress( pgmline, " " ), 1, klength(strip(__prefix)) ) ) =  strip(__prefix) )  then do;
+          __prccess_line = 1;
+          leave;
         end;
 
       end;
@@ -184,8 +204,9 @@
 
         type = "annotation";
 
-        __start = kfindc( strip(pgmline), "@", 1);
-        __end = kfindc( strip(pgmline), " ;", "", __start );
+        __start = kfind( strip(pgmline), "@", 1);
+        __end = min( kfind( strip(pgmline), " ", "", __start ), 
+                     kfind( strip(pgmline), ";", "", __start ) );
 
         cmd = lowcase( ksubstr( strip(pgmline), __start, __end - __start ) );
         reference = compress( cmd, "@ ;");
@@ -237,7 +258,7 @@
 
 
     %* -- clean temporary data sets ;
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
       proc datasets library = _cxtfwrk nolist nodetails ;
         delete __cxtf_tfilemap_: ;  run;
       quit;
@@ -246,11 +267,15 @@
 
 
     %* -- restore entry state ;
-    %if ( &_syscc ^= 0 ) %then %do;
-      %let syscc = &_syscc;
-      %let sysmsg = &_sysmsg;
+    %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
+      %let syscc = &_cxtf_syscc;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
-
 
 
 %mend;

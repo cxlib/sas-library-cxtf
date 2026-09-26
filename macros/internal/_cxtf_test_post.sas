@@ -1,5 +1,5 @@
 /*
-* Post-processing for test 
+* Internal utility macro for post-processing test scenario
 *
 *
 */
@@ -9,14 +9,13 @@
 
    %* note: temporary data sets using prefix _cxtfwrk.__cxtf_[cxtf_testid]_post_* ;
 
+    %global CXTF_TESTID ; 
 
     %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
            _dspreinv _dsmtx _dsresults
-           _testlog
+           _testlog _cxtf_testlog_rows
            _test_numassertions
     ;
-
-
 
 
     %* -- capture entry state ;
@@ -24,41 +23,47 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
 
-    *% -- diable test log ;
+    *% -- disable test log ;
     proc printto ;
     run;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     *% -- test id required ;
     %if ( %symexist(cxtf_testid) = 0 ) %then %do;
-      %put Expected CXTF_TESTID not defined;
-      %goto macro_exit;
+        %put %str(ER)ROR: (cxtf) Expected CXTF_TESTID not defined;
+        %_cxtf_stacktrace();        
+        %goto macro_exit;
     %end;
 
 
     %* -- replay test log ;
     %let _testlog = %sysfunc(pathname(_cxtfwrk))/test_&cxtf_testid..log ;
 
-    %if ( &_cxtf_debug_flg ) %then %do;
+
+    %if ( %upcase(&_cxtf_debug_flg) = TRUE ) %then 
       %put %str(DEBUG): Test log &_testlog ;
-    %end;
+
 
 
     %if ( %sysfunc(fileexist( &_testlog )) = 0 ) %then %do;
       %_cxtf_assert_fail( message = No test log );
-      %put %str(ER)ROR: No log to process ;
+      %put %str(ER)ROR: (cxtf) No test scenario log to process ;
+      %_cxtf_stacktrace();
       %goto macro_exit ;
     %end;
 
@@ -66,7 +71,7 @@
 
 
     data _cxtfwrk.__cxtf_&cxtf_testid._post_log;
-       
+
        length logline $ 4096 ;
 
        infile "&_testlog" ;
@@ -76,6 +81,8 @@
 
        keep logline ;
     run;
+      
+    
 
 
     data _null_;
@@ -160,7 +167,7 @@
 
     %if ( &_test_numassertions = 0 ) %then %do;
       %_cxtf_assert_fail( message = Empty test );
-      %put %str(ER)ROR: Empty test;
+      %put %str(ER)ROR: (cxtf) Empty test;
     %end; 
 
 
@@ -176,7 +183,7 @@
 
     
     %* -- clean up ;
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets  library = _cxtfwrk nolist nodetails ;
         delete __cxtf_&cxtf_testid._: ; run;
@@ -185,10 +192,17 @@
 
     %end;
 
+
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
 
 %mend;

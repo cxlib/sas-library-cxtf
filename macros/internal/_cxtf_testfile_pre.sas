@@ -1,5 +1,5 @@
 /*
-* Pre-processing for test file
+* Internal utility macro for pre-processing test file
 *
 * @param path Test file
 *
@@ -11,12 +11,14 @@
 
     %* note: temporary data sets using prefix _cxtfwrk.__cxtf_tfilepre_* ;
 
+    %global CXTF_TESTID ;
+
     %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
-           _tempfile 
+           _cxtf_tempfile 
     ;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -24,13 +26,17 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
+
 
 
     %* -- clean previous artifacts ;
@@ -104,13 +110,16 @@
 
     %* - output test file ;
 
-    %cxtf_tempfile( prefix = testfile, fileext = sas, return = _tempfile );
+    %cxtf_tempfile( prefix = testfile, fileext = sas, return = _cxtf_tempfile );
+
+    %if ( &_cxtf_debug_flg = TRUE ) %then
+      %put %str(DEBUG) Inert source file for test scenarios is &_cxtf_tempfile;
 
 
     data _null_;
       set _cxtfwrk.__cxtf_tfilepre_tstfile ;
 
-      file "&_tempfile";
+      file "&_cxtf_tempfile";
 
       put outline ;
     run;
@@ -121,9 +130,9 @@
     data _null_;
       set sashelp.vmacro ;
       where ( upcase(scope) = upcase(symget('sysmacroname')) ) and
-            ( upcase(name) = "_TEMPFILE" ) ;
+            ( upcase(name) = "_CXTF_TEMPFILE" ) ;
 
-      if ( symget( '_cxtf_debug_flg' ) = "1" ) then 
+      if ( symget( '_cxtf_debug_flg' ) = "TRUE" ) then 
          put "DEBUG Temporary file " value ; 
 
       call symput( '_cxtf_rc', '0' );
@@ -134,6 +143,40 @@
     run;
 
 
+    %* -- list inventory of defined tests in debug mode ;
+    %if ( &_cxtf_debug_flg = TRUE ) %then %do;
+    
+      proc sql noprint;
+  
+         create table _cxtfwrk.__cxtf_tfilepre_inv as 
+           select catx( ".", libname, memname) as catalog length=32, 
+                  objname as name, 
+                  catx( ".", libname, memname, objname) as ref length=200 from dictionary.catalogs 
+             where ( upcase(strip(libname)) = "WORK" ) and
+                   ( upcase(strip(memtype)) = "CATALOG" ) and
+                   ( upcase(strip(objtype)) = "MACRO" )
+         ;    
+    
+      quit;
+      
+      data _null_;
+        set _cxtfwrk.__cxtf_tfilepre_inv ;
+        by catalog ;
+  
+        where ( not ( ( upcase(strip(name)) =: "CXTF_" ) or
+                      ( upcase(strip(name)) =: "_CXTF_" ) ) ) ;
+                      
+        if ( _n_ = 1 ) then 
+          put "DEBUG List of imported macros" /
+              "DEBUG ----------------------------------------" ;
+          
+        put "DEBUG " name ; 
+        
+      run;      
+      
+    %end;
+
+
 
     %* -- macro exit point ;
     %macro_exit:
@@ -141,7 +184,7 @@
 
     %* -- clean up ;
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails ;
         delete __cxtf_tfilepre_: ;  run;
@@ -151,12 +194,17 @@
 
 
 
-
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
+
 
 
 
