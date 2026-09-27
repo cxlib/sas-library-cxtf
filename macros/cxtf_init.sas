@@ -19,7 +19,6 @@
 %macro cxtf_init( reset = TRUE );
 
     %local _cxtf_init_rc _cxtf_init_syscc _cxtf_init_sysmsg _cxtf_init_debug_flg
-           _cxtf_init_opt_mcache
            _cxtf_init_work 
            _cxtf_init_liblst _cxtf_init_i
            _cxtf_init_lib _cxtf_init_tmpdir 
@@ -56,14 +55,18 @@
 
 
     
-    
+    %* -- Siemens/Altair SAS Language Compiler (SLC) option ;
     %* -- disable and purge macro memory cache ;
-    %let _cxtf_init_opt_mcache = %sysfunc(getoption(mcache));
-    
-    %if ( &_cxtf_init_opt_mcache ^= %str() ) %then %do;
-        %put %str(NO)TE: MCACHE set to 0 to clear and disable macro memory cache;
-        options MCACHE = 0;
-    %end;
+    data _null_;
+        set sashelp.voption;
+        where (upcase(strip(optname)) = "MCACHE"); 
+
+        %* note: call execute() statements only execute if MCACHE option exists ;
+
+        call execute( '%put %str(NO)TE: MCACHE set to 0 to clear and disable macro memory cache;' );
+        call execute('options MCACHE = 0;');
+    run;
+
 
 
 
