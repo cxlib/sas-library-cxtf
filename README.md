@@ -1,8 +1,15 @@
 
 cxtf is a test framework for and written entirely in SAS
 
+The current release has been informaly tested on the following SAS environments.
 
-This is a development release that now adds support for both positive and negative (think Errors and Warnings).
+- SAS Institute
+  - PC SAS
+  - SAS OnDemand for Academics
+  - SAS Life Science Analytics Framework (LSAF)
+- Siemens (formerly Altair)
+  - SAS Language Compiler (SLC)
+
 
 
 
@@ -17,6 +24,13 @@ Add both the `<install directory>/macros` and `<install directory>/macros/intern
 ```
 options SASAUTOS = ( "<install directory>/macros", "<install directory>/macros/internal", !SASAUTOS );
 ```
+
+<br/>
+
+If you are running the examples on Siemens (formerly Altair) SAS Language Compiler (SLC), replace the example files
+`test-manage-errors.sas` and `test-manage-warnings.sas` with the files `slc-test-manage-errors.sas` and 
+`slc-test-manage-warnings.sas`, respectively. As it turns out, the standard error messages differ between the
+Siemens and SAS Institute SAS interpreters and compilers.
 
 <br/>
 
