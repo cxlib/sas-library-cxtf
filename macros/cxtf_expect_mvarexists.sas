@@ -20,13 +20,13 @@
 %macro cxtf_expect_mvarexists( variable = , scope = local, not = FALSE );
 
 
-    %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
+    %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg 
            _cxtf_expect_scope  
            _cxtf_expect_hit 
     ;
 
     
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug();
 
 
     %* -- capture entry state ;
@@ -34,11 +34,14 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
@@ -95,10 +98,16 @@
     %macro_exit:
 
 
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
 
 

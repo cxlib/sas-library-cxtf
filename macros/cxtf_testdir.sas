@@ -24,7 +24,7 @@
     ;
 
     
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -32,13 +32,17 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
+
 
 
     %* -- passively initialize ;
@@ -52,7 +56,8 @@
 
 
     %if ( %sysfunc(fileexist( &path )) = 0 ) %then %do;
-      %put %str(ER)ROR: The specified file &path does not exist;
+      %put %str(ER)ROR: (cxtf) The specified file &path does not exist;
+      %_cxtf_stacktrace();
       %goto exit;
     %end;
 
@@ -77,7 +82,7 @@
     run; 
 
 
-    %if ( &_cxtf_debug_flg ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = TRUE ) %then %do;
 
       data _null_;
         set _cxtfwrk.__cxtf_tdir_files   end = eof ;
@@ -128,7 +133,7 @@
 
 
     %* -- clean up ;
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails ;
         delete __cxtf_tdir_: ;  run;
@@ -140,9 +145,15 @@
     
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
+
 
 
 %mend;

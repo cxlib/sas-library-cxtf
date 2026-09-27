@@ -1,5 +1,5 @@
 /*
-* Simple utility to report the results of a single test
+* Internal utility macro to report the results of a single test
 *
 *
 *
@@ -12,27 +12,33 @@
     %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
            _cxtf_rpt_colwidth
     ;
+    
 
     %* -- capture entry state ;
     %let _cxtf_syscc = 0;
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     *% -- test id required ;
     %if ( %symexist(cxtf_testid) = 0 ) %then %do;
-      %put Expected CXTF_TESTID not defined;
+      %put %str(ER)ROR: (cxtf) Expected CXTF_TESTID not defined;
+      %_cxtf_stacktrace();
       %goto macro_exit;
     %end;
 
@@ -94,7 +100,7 @@
       end;
 
 
-      %* -- build resuots line ;
+      %* -- build results line ;
       call catx( "  ", resstr, catx( ": ", propcase(strip(result)), strip(put( resultcount, 8. )) ) ); 
 
 
@@ -202,18 +208,23 @@
     %macro_exit:
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
       proc datasets  library = _cxtfwrk nolist nodetails;
         delete __cxtf_&cxtf_testid._rpt_: ; run;
       quit;
     %end;
 
 
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
-
 
 %mend;

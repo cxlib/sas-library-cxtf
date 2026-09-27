@@ -5,7 +5,7 @@
 * @param variablescope Scope of variable
 * @paran compare Second macro variable name
 * @param comparescope Scope of compare variable 
-* @paran ígnorecase Ignore case in comparison
+* @paran ï¿½gnorecase Ignore case in comparison
 * @param not Negate the assertion
 *
 * @description 
@@ -36,7 +36,7 @@
     ;
 
     
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -44,11 +44,14 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
@@ -184,7 +187,7 @@
     %macro_exit:
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails;
         delete _cxtf_expect_mvariseq_: ; run;
@@ -195,8 +198,13 @@
 
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
 
 

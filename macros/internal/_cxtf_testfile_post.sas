@@ -1,5 +1,5 @@
 /*
-* Post-processing for test file
+* Internal utility macro for post-processing test file
 *
 * @param path Test file path 
 *
@@ -17,7 +17,7 @@
     %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg ;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -25,13 +25,17 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
+
 
 
     
@@ -74,10 +78,6 @@
       where ( not ( ( upcase(strip(name)) =: "CXTF_" ) or
                     ( upcase(strip(name)) =: "_CXTF_" ) ) ) ;
 
-*      if ( not ( ( upcase(strip(name)) =: "CXTF_" ) or
-*                 ( upcase(strip(name)) =: "_CXTF_" ) ) ) then return;
-
-
       if first.catalog then do;
         call execute( catx( " ", "proc catalog  catalog = ", strip(catalog), " entrytype= macro ;" ) );
         call execute( "  delete " );
@@ -100,7 +100,7 @@
     %* -- macro exit point ;
     %macro_exit:
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails ;
         delete __cxtf_tfilepost_: ;  run;
@@ -110,10 +110,16 @@
     %end;
 
 
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
 
 

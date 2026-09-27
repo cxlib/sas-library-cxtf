@@ -17,7 +17,7 @@
     ;
 
     
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -25,11 +25,14 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+	      %let _cxtf_sysmsg = &sysmsg;
+	      %let sysmsg = ;
+	  %end;
 
     %end;
 
@@ -45,13 +48,13 @@
 
 
     %if ( %sysfunc(fileexist( &path )) = 0 ) %then %do;
-      %put %str(ER)ROR: The specified file &path does not exist;
+      %put %str(ER)ROR: (cxtf) The specified file &path does not exist;
       %goto macro_exit;
     %end;
 
 
     %* -- standardise path reference ;
-    %let _cxtf_testfile_path = %sysfunc(lowcase(%sysfunc(translate( &path, /, \))));
+    %let _cxtf_testfile_path = %sysfunc(translate( &path, /, \));
 
 
     %* -- remove test file entries from index and associated results ;
@@ -154,6 +157,7 @@
 
 
       %* - add test id ;
+      call catx( " ; ", cmdstr, '%global CXTF_TESTID' );
       call catx( " ; ", cmdstr, cats( '%let CXTF_TESTID=', strip(testid) ) );
 
       %* - pre-process test ;
@@ -169,8 +173,7 @@
 
 
       %* - disable test id ;
-      call catx( " ; ", cmdstr, cats( '%symdel CXTF_TESTID;' ) );
-
+      call catx( " ; ", cmdstr, '%symdel CXTF_TESTID' ); 
 
 
       %* - add terminating semi-colon ;
@@ -184,18 +187,21 @@
           "---------------------------------------------------------------------" /
           " ";
 
-      if ( symget( '_cxtf_debug_flg' ) = "1" ) then 
+      if ( strip(symget( '_cxtf_debug_flg' )) = "TRUE" ) then 
          put "(DEBUG) Test command string " cmdstr ;
 
 
-      rc = dosubl( cmdstr );
+      rc = dosubl( cmdstr ); 
 
+      if ( symexist( 'CXTF_TESTID' ) = 1 ) then 
+          call symdel( 'CXTF_TESTID' );
+
+      
       put " " /
           "---------------------------------------------------------------------" /
           "End test ID " testid /
           "---------------------------------------------------------------------" /
           " " ;
-
 
     run;
 
@@ -210,7 +216,7 @@
 
 
     %* -- clean temporary data sets ;
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
       proc datasets library = _cxtfwrk nolist nodetails ;
         delete __cxtf_tfile_: ;  run;
       quit;
@@ -219,8 +225,12 @@
 
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then
+	      %let sysmsg = &_cxtf_sysmsg;
+
     %end;
 
 

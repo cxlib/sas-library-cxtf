@@ -51,7 +51,7 @@
     ;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- capture entry state ;
@@ -59,14 +59,17 @@
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
-
+    
 
     %* -- clean up previous artefacts ;
     proc datasets library = _cxtfwrk nolist nodetails;
@@ -129,6 +132,28 @@
     %if ( %index( &_cxtf_dscompare, %str(.)) = 0 ) %then %do;
       %* -- assume WORK if lib not specified  ;
       %let _cxtf_dscompare = %upcase(WORK.&compare) ;
+    %end;
+
+
+    %* -- data not exists ;
+
+    %if ( %sysfunc(exist(&_cxtf_dsbase)) = 0 ) %then %do;
+
+      %* - if assertion cannot determine an explicit pass of fail, inconclusive defaults to fail ;
+      %_cxtf_assert_fail( message = Primary data set &_cxtf_dsbase does not exist );
+
+      %goto macro_exit;
+    %end;
+
+
+    %* -- data compare not exists ;
+
+    %if (%sysfunc(exist(&_cxtf_dscompare)) = 0 ) %then %do;
+
+      %* - if assertion cannot determine an explicit pass of fail, inconclusive defaults to fail ;
+      %_cxtf_assert_fail( message = Comparison data set &_cxtf_dscompare does not exist );
+
+      %goto macro_exit;
     %end;
 
 
@@ -476,7 +501,7 @@
     %macro_exit:
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
 
       proc datasets library = _cxtfwrk nolist nodetails;
         delete _cxtf_expect_dseq_: ; run;
@@ -485,12 +510,17 @@
     %end;
 
 
+
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
-
 
 
 %mend;

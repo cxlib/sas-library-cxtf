@@ -1,5 +1,5 @@
 /*
-* Simple utility to report the results of test files in a test directory
+* Internal utility to report the results of test files in a test directory
 *
 * @param path Test directory path 
 *
@@ -14,21 +14,27 @@
            _cxtf_rpt_colwidth
     ;
 
+
+    %* print debug details ;
+    %cxtf_debug( return = _cxtf_debug_flg );
+
+
     %* -- capture entry state ;
     %let _cxtf_syscc = 0;
     %let _cxtf_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
+    
       %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+          %let _cxtf_sysmsg = &sysmsg;
+          %let sysmsg = ;
+      %end;
 
     %end;
 
-
-    %_cxtf_debug( return = _cxtf_debug_flg );
 
 
     %* -- clean up any existing artifacts ;
@@ -264,7 +270,7 @@
     %macro_exit:
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_debug_flg) = FALSE ) %then %do;
       proc datasets  library = _cxtfwrk nolist nodetails;
         delete __cxtf_testdir_rpt_: ; run;
       quit;
@@ -273,9 +279,15 @@
 
     %* -- restore entry state ;
     %if ( &_cxtf_syscc ^= 0 ) %then %do;
+    
       %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do;
+          %let sysmsg = &_cxtf_sysmsg;
+      %end;
+          
     %end;
+
 
 
 %mend;

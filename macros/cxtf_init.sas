@@ -6,73 +6,106 @@
 * @decription
 *
 * Note that reset takes the values TRUE and FALSE, case in-sensitive 
+* 
 *
+* Siemens/Altair SAS Language Compiler (SLC)
+* -------------------------------------------------------
+* Option MCACHE is forced equal to 0 to disable and purge macro 
+* memory cache
 *
 */
 
 
 %macro cxtf_init( reset = TRUE );
 
-    %local _cxtf_rc _cxtf_syscc _cxtf_sysmsg _cxtf_debug_flg
-           _cxtf_work 
-           _cxtf_liblst _cxtf_i
-           _cxtf_lib _cxtf_tmpdir 
+    %local _cxtf_init_rc _cxtf_init_syscc _cxtf_init_sysmsg _cxtf_init_debug_flg
+           _cxtf_init_work 
+           _cxtf_init_liblst _cxtf_init_i
+           _cxtf_init_lib _cxtf_init_tmpdir 
     ;
 
 
-    %_cxtf_debug( return = _cxtf_debug_flg );
+    %cxtf_debug( return = _cxtf_init_debug_flg );
 
+    
 
     %* -- capture entry state ;
-    %let _cxtf_syscc = 0;
-    %let _cxtf_sysmsg = ;
+    %let _cxtf_init_syscc = 0;
+    %let _cxtf_init_sysmsg = ;
 
     %if ( &syscc ^= 0 ) %then %do;
-      %let _cxtf_syscc = &syscc;
-      %let _cxtf_sysmsg = &sysmsg;
-
+    
+      %let _cxtf_init_syscc = &syscc;
       %let syscc = 0;
-      %let sysmsg = ;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+	      %let _cxtf_init_sysmsg = &sysmsg;
+	      %let sysmsg = ;
+      %end;
+	  %end;
 
-    %end;
+
+
+    %* -- error SYNTAXCHECK mode ;
+    %*    note: NOSYNTAXCHECK normal operation ;
+    %if ( %sysfunc(getoption( SYNTAXCHECK)) = SYNTAXCHECK ) %then %do;
+      %put %str(ER)ROR: (cxtf) SYNTAXCHECK enabled. The macro %upcase(&sysmacroname) will not execute. ;
+      %goto macro_exit;
+    %end; 
+
+
+    
+    %* -- Siemens/Altair SAS Language Compiler (SLC) option ;
+    %* -- disable and purge macro memory cache ;
+    data _null_;
+        set sashelp.voption;
+        where (upcase(strip(optname)) = "MCACHE"); 
+
+        %* note: call execute() statements only execute if MCACHE option exists ;
+
+        call execute( '%put %str(NO)TE: MCACHE set to 0 to clear and disable macro memory cache;' );
+        call execute('options MCACHE = 0;');
+    run;
+
+
 
 
     %* -- set up standard libraries ;
 
     %* use WORK as parent ;
     %* note: subdirectories automatically deleted when SAS session exists ;
-    %let _cxtf_work = %sysfunc(pathname( WORK ));
+    %let _cxtf_init_work = %sysfunc(pathname( WORK ));
 
 
-    %let _cxtf_liblst = _cxtfwrk _cxtfrsl ;
-    %let _cxtf_i = 1 ;
+    %let _cxtf_init_liblst = _cxtfwrk _cxtfrsl ;
+    %let _cxtf_init_i = 1 ;
 
-    %do %while ( %scan( &_cxtf_liblst, &_cxtf_i, %str( )) ^= %str() );
+    %do %while ( %scan( &_cxtf_init_liblst, &_cxtf_init_i, %str( )) ^= %str() );
 
-        %let _cxtf_lib = %scan( &_cxtf_liblst, &_cxtf_i, %str( )) ;
-        %let _cxtf_i = %eval( &_cxtf_i + 1 );
+        %let _cxtf_init_lib = %scan( &_cxtf_init_liblst, &_cxtf_init_i, %str( )) ;
+        %let _cxtf_init_i = %eval( &_cxtf_init_i + 1 );
 
         %* - create sub-work directory if not exist ;
-        %if ( %sysfunc(libref( &_cxtf_lib )) ^= 0 ) %then %do;
+        %if ( %sysfunc(libref( &_cxtf_init_lib )) ^= 0 ) %then %do;
 
-          %let _cxtf_tmpdir=;
-          %cxtf_tempfile( prefix = &_cxtf_lib._, path = &_cxtf_work, fileext = , return = _cxtf_tmpdir);
+          %let _cxtf_init_tmpdir=;
+          %cxtf_tempfile( prefix = &_cxtf_init_lib._, path = &_cxtf_init_work, fileext = , return = _cxtf_init_tmpdir);
 
-          %if ( %sysfunc(fileexist(&_cxtf_tmpdir)) = 0 ) %then   
-              %let rc = %sysfunc(dcreate( %scan( &_cxtf_tmpdir, -1, %str(/)), &_cxtf_work ));
+          %if ( %sysfunc(fileexist(&_cxtf_init_tmpdir)) = 0 ) %then   
+              %let rc = %sysfunc(dcreate( %scan( &_cxtf_init_tmpdir, -1, %str(/)), &_cxtf_init_work ));
 
           %* - create libname ;
-          %let rc = %sysfunc(libname( &_cxtf_lib, &_cxtf_tmpdir )); 
+          %let rc = %sysfunc(libname( &_cxtf_init_lib, &_cxtf_init_tmpdir )); 
 
           %* - make sure it went ok ;
-          %if ( %sysfunc(libref( &_cxtf_lib )) ^= 0 ) %then %do;
-            %put %str(ER)ROR: Could not configure library &_cxtf_lib ;
+          %if ( %sysfunc(libref( &_cxtf_init_lib )) ^= 0 ) %then %do;
+            %put %str(ER)ROR: (cxtf) Could not configure library &_cxtf_init_lib ;
           %end; 
 
         %end; 
 
         %if ( %upcase(&reset) = TRUE ) %then %do;
-          proc datasets library = &_cxtf_lib nolist nodetails kill;
+          proc datasets library = &_cxtf_init_lib nolist nodetails kill;
           quit;
         %end;
 
@@ -118,39 +151,6 @@
 
 
 
-    %* -- reset cxtf macros ;
-    %if ( %upcase(&reset) = TRUE ) %then %do;
-
-      proc sql noprint;
-
-        create table _cxtfwrk.__cxtf_init_macros as 
-          select catx( ".", libname, memname) as catalog length=32, 
-                 objname
-          from dictionary.catalogs 
-          where ( upcase(strip(libname)) = "WORK" ) and
-                ( upcase(strip(memtype)) = "CATALOG" ) and
-                ( upcase(strip(objtype)) = "MACRO" )
-          order by catalog, objname
-        ;
-
-      quit;
-
-
-      data _null_;
-        set _cxtfwrk.__cxtf_init_macros ;
-        by catalog ;
-
-        where ( ( upcase(strip(objname)) =: "CXTF_" ) or
-                ( upcase(strip(objname)) =: "_CXTF_" ) ) and 
-              ( upcase(strip(objname)) ^= "CXTF_INIT" )
-        ;
-
-        put "NO" "TE: Deleting macro " objname +(-1) " in catalog " catalog +(-1) "." ;
-        call execute( catx( " ", '%sysmacdelete', objname, '/nowarn') );
-
-      run;
-
-    %end;
 
 
 
@@ -159,17 +159,22 @@
 
 
 
-    %if ( &_cxtf_debug_flg = 0 ) %then %do;
+    %if ( %upcase(&_cxtf_init_debug_flg) = FALSE ) %then %do;
       proc datasets  library = _cxtfwrk nolist nodetails;
-        delete __cxtf_init_: ; run;
+        delete __cxtf_init_init_: ; run;
       quit;
     %end;
 
 
     %* -- restore entry state ;
-    %if ( ( %upcase(&reset) = FALSE ) and ( &_cxtf_syscc ^= 0 ) ) %then %do;
-      %let syscc = &_cxtf_syscc;
-      %let sysmsg = &_cxtf_sysmsg;
+    %if ( ( %upcase(&reset) = FALSE ) and ( &_cxtf_init_syscc ^= 0 ) ) %then %do;
+    
+      %let syscc = &_cxtf_init_syscc;
+      
+      %if ( %symexist(SYSMSG) = 1 ) %then %do; 
+	      %let sysmsg = &_cxtf_init_sysmsg;
+	    %end;
+      
     %end;
 
 
