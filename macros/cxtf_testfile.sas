@@ -54,7 +54,7 @@
 
 
     %* -- standardise path reference ;
-    %let _cxtf_testfile_path = %sysfunc(lowcase(%sysfunc(translate( &path, /, \))));
+    %let _cxtf_testfile_path = %sysfunc(translate( &path, /, \));
 
 
     %* -- remove test file entries from index and associated results ;
